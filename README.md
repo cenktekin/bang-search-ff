@@ -1,49 +1,60 @@
-# Bang Search (Firefox)
+# Bang Search — Firefox
 
-DuckDuckGo-style bang (`!`) shortcuts for Firefox. Type a bang to search your favorite sites instantly.
+DuckDuckGo **!bangs** for Firefox, with a premium palette. Select any text → right-click → search it instantly on **13k+ sites** — Wikipedia, YouTube, Hepsiburada, Trendyol, GitHub, Stack Overflow...
 
-> **Status:** Scaffold. Background, content, and options logic are placeholders — other agents fill them in.
+![License: MIT](https://img.shields.io/badge/license-MIT-blue) ![Firefox](https://img.shields.io/badge/Firefox-142%2B-orange) ![Version](https://img.shields.io/badge/version-0.1.0-green)
+
+## ✨ Features
+
+- **Context menu**: Select `ankara` → right-click → `Bang ile ara "ankara"` → palette
+- **Fuzzy bang search**: Type `hepsi` → Hepsiburada (`!hb`), `yt` → YouTube, `w` → Wikipedia, `gh` → GitHub
+- **Offline fallback**: 30 popular bangs embedded, never empty even without network
+- **Auto-sync**: Fetches `https://duckduckgo.com/bang.js` daily (fallback mirrors: zmwangx/kagisearch), caches in `storage.local`
+- **Premium UI**: Shadow DOM palette, compact (480px), dark-mode aware (`prefers-color-scheme`), Raycast-style, `Esc`/click to close, `↑↓` + `Enter` navigation
+- **Privacy**: No data collection (`data_collection_permissions: ["none"]`), all local
+
+## Demo
+
+`annapurna` on YouTube → right-click → type `wiki` → Enter → `https://en.wikipedia.org/w/index.php?search=annapurna`
+
+## Install
+
+### Temporary (dev)
+1. `about:debugging#/runtime/this-firefox` → `Load Temporary Add-on…` → `manifest.json`
+2. Or `npx web-ext run`
+
+### Signed (unlisted)
+Signed `.xpi` in [`web-ext-artifacts/`](web-ext-artifacts/) — `about:addons` → gear → `Install Add-on From File…`
+
+### AMO (listed — pending review)
+Upload `web-ext-artifacts/bang_search-0.1.0.zip` to https://addons.mozilla.org/developers/addon/submit/distribution (MIT license)
 
 ## Structure
 
 ```
-manifest.json              MV3 manifest (Firefox)
-src/
-  background/background.js Background service worker (placeholder)
-  content/content.js       Content script — bang picker (placeholder)
-  content/picker.css       Picker styles (placeholder)
-  lib/bangs.js             Shared bang registry (placeholder)
-  options/options.html     Options page (placeholder)
-  options/options.js       Options logic (placeholder)
-  options/options.css      Options styles (placeholder)
-icons/
-  icon-48.png / icon-96.png / icon-128.png
+manifest.json              MV3 (gecko.id: bangs-search@ff-extension.local, min 142)
+src/background/background.js  fetch/cache, contextMenus, alarms, SEARCH/GET_BANGS
+src/lib/bangs.js              normalizeBang, buildSearchUrl, rankBangs, FALLBACK_BANGS
+src/content/content.js        Shadow DOM palette, header (selected text), input (bang search)
+src/content/picker.css        host wrapper only (main CSS inline for isolation)
+src/options/*                 stats, lastUpdate, recentBangs, refresh
+icons/icon-{48,96,128}.png   blue ! glyph
 ```
-
-## Load in Firefox (about:debugging)
-
-1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…**.
-3. Select `manifest.json` in this folder.
-4. The extension appears in the list. Use **Reload** after code changes.
-
-> Temporary add-ons are removed when Firefox restarts. For permanent installs, package the
-> extension (e.g. `web-ext build`) and install via `about:addons` → gear icon → **Install Add-on From File…**.
 
 ## Development
 
 ```powershell
-# Lint the manifest / extension
 npx web-ext lint
-
-# Run a throwaway Firefox instance with the extension loaded
-npx web-ext run
+npx web-ext build --overwrite-dest
+npx web-ext sign --channel=unlisted  # needs WEB_EXT_API_KEY/SECRET in env (persona-chat/.env)
 ```
 
-## Notes
+## AMO Publishing
 
-- `manifest_version` is **3** (Firefox 109+).
-- `browser_specific_settings.gecko.id` is required for unsigned loading via `about:debugging`.
-- Background uses `"service_worker"` for cross-browser parity. Firefox MV3 also accepts
-  `"scripts": ["src/background/background.js"]` — switch to that if service-worker
-  compatibility issues arise.
+- Uses `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` from `persona-chat/.env` (or `~/.web-ext-config`)
+- Unlisted signing succeeds without license; listed requires MIT (`--amo-metadata` with `version.license` or manual upload)
+- Signed artifact: `web-ext-artifacts/e81389e7dc61431ea826-0.1.0.xpi`
+
+## License
+
+MIT © 2026 Cenk Tekin — https://github.com/cenktekin/bang-search-ff

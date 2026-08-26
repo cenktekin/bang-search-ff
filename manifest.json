@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "DuckDuckGo-style bang (!) shortcuts for Firefox. Select any text, right-click and search it instantly on 13k+ sites (Wikipedia, YouTube, Hepsiburada, Trendyol, GitHub...). Offline fallback included.",
   "author": "Cenk",
-  "homepage_url": "https://github.com/cenkt/bang-search-ff",
+  "homepage_url": "https://github.com/cenktekin/bang-search-ff",
   "browser_specific_settings": {
     "gecko": {
       "id": "bangs-search@ff-extension.local",
