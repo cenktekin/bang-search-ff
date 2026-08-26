@@ -1,0 +1,11 @@
+# Dependencies / build artifacts
+node_modules/
+web-ext-artifacts/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+
+# Temp
+.tmp/

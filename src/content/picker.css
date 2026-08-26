@@ -1,0 +1,22 @@
+/* Bang Search — picker host styles.
+ *
+ * The manifest injects this file into every page, so every rule here is
+ * scoped to #bang-search-host (our own wrapper element) and can never leak
+ * into the host page. The palette UI itself lives inside a Shadow DOM and
+ * is styled by the inline stylesheet in src/content/content.js — global
+ * CSS cannot reach shadow content, which is exactly what keeps the picker
+ * isolated.
+ */
+
+#bang-search-host {
+  all: initial;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  display: none;
+}
+
+#bang-search-host.bang-open {
+  display: block;
+}

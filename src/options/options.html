@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bang Search - Ayarlar</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="card">
+    <header class="header">
+      <h1>Bang Search - Ayarlar</h1>
+      <p class="subtitle">DuckDuckGo tarzı <code>!</code> kısayollarıyla hızlı arama</p>
+    </header>
+
+    <section class="stats" aria-label="Bang istatistikleri">
+      <div class="stat">
+        <span class="stat-label">Bang Sayısı</span>
+        <span class="stat-value" id="bangCount">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Son Güncelleme</span>
+        <span class="stat-value" id="lastUpdate">-</span>
+      </div>
+    </section>
+
+    <section class="recent">
+      <h2>Son Kullanılan Bangler</h2>
+      <div id="recentList" class="pills">
+        <span class="empty-hint">Henüz bang kullanılmadı</span>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="refreshBtn" type="button">Bangs'i Güncelle</button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <footer class="footer">
+      <a href="https://duckduckgo.com/bang" target="_blank" rel="noopener noreferrer">
+        Tüm bang listesini görüntüle (DuckDuckGo)
+      </a>
+    </footer>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>
