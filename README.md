@@ -20,8 +20,8 @@ DuckDuckGo **!bangs** for Firefox, with a premium palette. Select any text → r
 ## Install
 
 ### Temporary (dev)
-1. `about:debugging#/runtime/this-firefox` → `Load Temporary Add-on…` → `manifest.json`
-2. Or `npx web-ext run`
+1. `about:debugging#/runtime/this-firefox` → `Load Temporary Add-on…` → `dist/firefox/manifest.json` (önce `npm run build:firefox`)
+2. Or `npm run start:firefox` / `npm run start:chrome`
 
 ### Signed (unlisted)
 Signed `.xpi` in [`web-ext-artifacts/`](web-ext-artifacts/) — `about:addons` → gear → `Install Add-on From File…`
@@ -32,21 +32,36 @@ Upload `web-ext-artifacts/bang_search-0.1.0.zip` to https://addons.mozilla.org/d
 ## Structure
 
 ```
-manifest.json              MV3 (gecko.id: bangs-search@ff-extension.local, min 142)
-src/background/background.js  fetch/cache, contextMenus, alarms, SEARCH/GET_BANGS
-src/lib/bangs.js              normalizeBang, buildSearchUrl, rankBangs, FALLBACK_BANGS
-src/content/content.js        Shadow DOM palette, header (selected text), input (bang search)
-src/content/picker.css        host wrapper only (main CSS inline for isolation)
-src/options/*                 stats, lastUpdate, recentBangs, refresh
-icons/icon-{48,96,128}.png   blue ! glyph
+src/
+├── common/                  ← single source of truth
+│   ├── background/background.js  fetch/cache, contextMenus, alarms, SEARCH/GET_BANGS
+│   ├── lib/bangs.js             normalizeBang, buildSearchUrl, rankBangs, FALLBACK_BANGS
+│   ├── content/content.js       Shadow DOM palette, header, input
+│   ├── content/picker.css       host wrapper only
+│   ├── options/*                stats, lastUpdate, recentBangs, refresh
+│   └── icons/icon-{48,96,128}.png blue ! glyph
+├── firefox/manifest.json    ← gecko.id: bangs-search@ff-extension.local, background.scripts
+└── chrome/manifest.json     ← no gecko, background.service_worker
+
+dist/
+├── firefox/                 ← build output (web-ext run/lint buradan)
+└── chrome/                  ← build output
 ```
 
 ## Development
 
 ```powershell
-npx web-ext lint
-npx web-ext build --overwrite-dest
-npx web-ext sign --channel=unlisted  # needs WEB_EXT_API_KEY/SECRET in env (persona-chat/.env)
+npm install
+npm run build                # src/common + src/{firefox,chrome} -> dist/
+npm run build:firefox
+npm run build:chrome
+npm run start:firefox        # build + web-ext run Firefox
+npm run start:chrome         # build + web-ext run Chrome
+npm run lint:firefox         # web-ext lint dist/firefox
+npm run lint:chrome          # web-ext lint dist/chrome
+npm run zip:firefox          # AMO zip -> web-ext-artifacts/
+# legacy (root manifest removed):
+# npx web-ext run --source-dir dist/firefox
 ```
 
 ## AMO Publishing

@@ -7,5 +7,11 @@ web-ext-artifacts/
 Thumbs.db
 *.log
 
+# Build outputs
+dist/
+
 # Temp
 .tmp/
+# opencode internal
+.omo/
+.amo-upload-uuid
