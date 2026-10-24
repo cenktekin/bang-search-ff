@@ -3,8 +3,9 @@
 // Responsibilities:
 //   - Fetch + cache the ~13k DuckDuckGo bangs in storage.local
 //   - Create the "Bang ile ara" context menu on text selection
-//   - Serve bangs to the content script (GET_BANGS)
+//   - Serve bangs (registry + user-defined) to the picker (GET_BANGS)
 //   - Open search URLs (SEARCH) and track recent bangs
+//   - Open the picker without a selection via the keyboard command
 //   - Refresh bangs daily via alarms (REFRESH_BANGS / onAlarm)
 
 "use strict";
@@ -12,64 +13,25 @@
 // Firefox exposes the promise-based `browser` API; fall back to `chrome` elsewhere.
 const api = typeof browser !== "undefined" ? browser : chrome;
 
-// Load shared bang helpers. importScripts resolves relative to this script's URL,
-// so ../lib/bangs.js points at src/lib/bangs.js.
-try {
-  importScripts("../lib/bangs.js");
-} catch (err) {
-  console.error("[Bang Search] Failed to load ../lib/bangs.js:", err);
+// Load shared bang helpers. Firefox lists lib/bangs.js in background.scripts
+// (classic script scope, no importScripts); Chrome's service worker uses
+// importScripts to pull the same single source of truth.
+if (
+  typeof importScripts === "function" &&
+  (typeof self === "undefined" || !self.BangLib)
+) {
+  try {
+    importScripts("../lib/bangs.js");
+  } catch (err) {
+    console.error("[Bang Search] Failed to load ../lib/bangs.js:", err);
+  }
 }
 
-let BangLib =
-  (typeof self !== "undefined" && self.BangLib) ||
-  (typeof globalThis !== "undefined" && globalThis.BangLib) ||
-  {};
-if (!BangLib.normalizeBang) {
-  BangLib.normalizeBang = function (raw) {
-    if (!raw || typeof raw !== "object") return null;
-    const tRaw = raw.t != null ? raw.t : raw.trigger != null ? raw.trigger : raw.id;
-    const t = typeof tRaw === "string" ? tRaw.trim() : "";
-    if (!t) return null;
-    const sRaw = raw.s != null ? raw.s : raw.name != null ? raw.name : raw.title;
-    const dRaw = raw.d != null ? raw.d : raw.domain;
-    const uRaw = raw.u != null ? raw.u : raw.url != null ? raw.url : raw.template;
-    const cRaw = raw.c != null ? raw.c : raw.category;
-    const scRaw = raw.sc != null ? raw.sc : raw.subcategory;
-    const rRaw = raw.r != null ? raw.r : raw.rank;
-    const bang = {
-      t,
-      s: typeof sRaw === "string" ? sRaw : "",
-      d: typeof dRaw === "string" ? dRaw : "",
-      u: typeof uRaw === "string" ? uRaw : "",
-      c: typeof cRaw === "string" ? cRaw : "",
-      sc: typeof scRaw === "string" ? scRaw : "",
-    };
-    if (typeof rRaw === "number" && Number.isFinite(rRaw)) bang.r = rRaw;
-    else if (typeof rRaw === "string" && rRaw.trim() !== "" && Number.isFinite(Number(rRaw))) bang.r = Number(rRaw);
-    return bang;
-  };
-}
-if (!BangLib.buildSearchUrl) {
-  BangLib.buildSearchUrl = function (bang, query) {
-    const encoded = encodeURIComponent(String(query == null ? "" : query));
-    if (bang && typeof bang.u === "string" && bang.u.length > 0) {
-      return bang.u.replace(/\{\{\{s\}\}\}/g, encoded).replace(/\{\{s\}\}/g, encoded);
-    }
-    const t = bang && typeof bang.t === "string" ? bang.t : "";
-    return `https://duckduckgo.com/?q=!${encodeURIComponent(t)} ${encoded}`;
-  };
-}
-if (!BangLib.FALLBACK_BANGS) {
-  BangLib.FALLBACK_BANGS = [
-    { t: "w", s: "Wikipedia", d: "wikipedia.org", u: "https://en.wikipedia.org/w/index.php?search={{{s}}}", c: "Reference", r: 1 },
-    { t: "wtr", s: "Wikipedia TR", d: "tr.wikipedia.org", u: "https://tr.wikipedia.org/w/index.php?search={{{s}}}", c: "Reference", r: 2 },
-    { t: "yt", s: "YouTube", d: "youtube.com", u: "https://www.youtube.com/results?search_query={{{s}}}", c: "Entertainment", r: 3 },
-    { t: "gh", s: "GitHub", d: "github.com", u: "https://github.com/search?q={{{s}}}", c: "Tech", r: 4 },
-    { t: "so", s: "Stack Overflow", d: "stackoverflow.com", u: "https://stackoverflow.com/search?q={{{s}}}", c: "Tech", r: 5 },
-    { t: "hb", s: "Hepsiburada", d: "hepsiburada.com", u: "https://www.hepsiburada.com/ara?q={{{s}}}", c: "Shopping", r: 8 },
-    { t: "hepsiburada", s: "Hepsiburada", d: "hepsiburada.com", u: "https://www.hepsiburada.com/ara?q={{{s}}}", c: "Shopping", r: 9 },
-    { t: "trendyol", s: "Trendyol", d: "trendyol.com", u: "https://www.trendyol.com/sr?q={{{s}}}", c: "Shopping", r: 10 },
-  ];
+const BangLib = (typeof self !== "undefined" && self.BangLib) || {};
+if (typeof BangLib.buildSearchUrl !== "function") {
+  console.error(
+    "[Bang Search] lib/bangs.js is missing; search and ranking will not work."
+  );
 }
 
 const BANG_URLS = [
@@ -82,6 +44,7 @@ const STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RECENT_LIMIT = 10;
 const MENU_ID = "bang-search";
 const ALARM_NAME = "refreshBangs";
+const PICKER_COMMAND = "open-bang-picker";
 
 // In-memory cache so menu clicks / messages don't hit storage every time.
 let cachedBangs = null;
@@ -150,7 +113,12 @@ async function getCachedBangs() {
         cachedBangs = stored.bangs;
         return cachedBangs;
       }
-    } catch (_) {}
+    } catch (storageErr) {
+      console.warn(
+        "[Bang Search] Could not read cached bangs:",
+        (storageErr && storageErr.message) || storageErr
+      );
+    }
     if (BangLib.FALLBACK_BANGS && BangLib.FALLBACK_BANGS.length > 0) {
       cachedBangs = BangLib.FALLBACK_BANGS;
       return cachedBangs;
@@ -162,6 +130,26 @@ async function getCachedBangs() {
 async function cacheBangs(bangs) {
   cachedBangs = bangs;
   await api.storage.local.set({ bangs, lastUpdate: Date.now() });
+}
+
+async function getCustomBangs() {
+  try {
+    const stored = await api.storage.local.get("customBangs");
+    return Array.isArray(stored.customBangs) ? stored.customBangs : [];
+  } catch (err) {
+    console.warn(
+      "[Bang Search] Could not read custom bangs:",
+      (err && err.message) || err
+    );
+    return [];
+  }
+}
+
+/** Registry + user-defined bangs, custom entries first. */
+async function getEffectiveBangs() {
+  const registry = cachedBangs || (await getCachedBangs());
+  const custom = await getCustomBangs();
+  return BangLib.mergeBangs ? BangLib.mergeBangs(registry, custom) : registry;
 }
 
 /* ------------------------------------------------------------------ */
@@ -187,34 +175,65 @@ async function getActiveTab() {
   return tabs && tabs[0] ? tabs[0] : null;
 }
 
+async function openPicker(query) {
+  const tab = await getActiveTab();
+  if (!tab || tab.id == null) return;
+
+  const bangs = await getEffectiveBangs();
+  try {
+    await api.tabs.sendMessage(tab.id, {
+      type: "OPEN_PICKER",
+      query: String(query == null ? "" : query),
+      bangs,
+    });
+  } catch (err) {
+    // Content script not injected on this page (about:, PDF viewer, etc.).
+    console.warn(
+      "[Bang Search] Content script unreachable; picker not shown:",
+      (err && err.message) || err
+    );
+  }
+}
+
 api.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!info || info.menuItemId !== MENU_ID) return;
   try {
     const query = String(info.selectionText || "").trim();
     if (!query) return;
 
-    const bangs = cachedBangs || (await getCachedBangs());
+    const bangs = await getEffectiveBangs();
     const targetTab = tab || (await getActiveTab());
+    if (!targetTab || targetTab.id == null) return;
 
-    if (targetTab && targetTab.id != null) {
-      try {
-        await api.tabs.sendMessage(targetTab.id, {
-          type: "OPEN_PICKER",
-          query,
-          bangs,
-        });
-      } catch (err) {
-        // Content script not injected on this page (about:, PDF viewer, etc.).
-        console.warn(
-          "[Bang Search] Content script unreachable; picker not shown:",
-          err.message || err
-        );
-      }
+    try {
+      await api.tabs.sendMessage(targetTab.id, {
+        type: "OPEN_PICKER",
+        query,
+        bangs,
+      });
+    } catch (err) {
+      console.warn(
+        "[Bang Search] Content script unreachable; picker not shown:",
+        (err && err.message) || err
+      );
     }
   } catch (err) {
     console.error("[Bang Search] contextMenus.onClicked error:", err);
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* Keyboard command                                                    */
+/* ------------------------------------------------------------------ */
+
+if (api.commands && api.commands.onCommand) {
+  api.commands.onCommand.addListener((command) => {
+    if (command !== PICKER_COMMAND) return;
+    openPicker("").catch((err) =>
+      console.error("[Bang Search] Command failed:", err)
+    );
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* Messaging                                                           */
@@ -241,14 +260,14 @@ async function handleMessage(message) {
 
   switch (message.type) {
     case "GET_BANGS": {
-      const bangs = cachedBangs || (await getCachedBangs());
+      const bangs = await getEffectiveBangs();
       return { bangs };
     }
 
     case "SEARCH": {
       const bangT = String(message.bangT || "");
       const query = String(message.query == null ? "" : message.query);
-      const bangs = cachedBangs || (await getCachedBangs());
+      const bangs = await getEffectiveBangs();
       const bang =
         bangs.find((b) => b.t === bangT) ||
         bangs.find((b) => b.t.toLowerCase() === bangT.toLowerCase());
@@ -262,6 +281,7 @@ async function handleMessage(message) {
     }
 
     case "REFRESH_BANGS": {
+      // Only the fetched registry is replaced; customBangs live in their own key.
       const fresh = await fetchBangs();
       await cacheBangs(fresh);
       return { count: fresh.length };

@@ -39,7 +39,8 @@ After:
 
 * `git mv src/* → src/common/*` so history preserved.
 * `src/firefox/manifest.json` copied from old root manifest, `background` changed to `background/background.js` (relative to `dist/`), `content_scripts` without `src/` prefix. `src/chrome/manifest.json` created without `gecko` and with `service_worker`.
-* `icons/` copied to `src/common/icons/`; root `icons/` kept for backward compat (both exist, canonical is `src/common/icons/`).
+* `icons/` copied to `src/common/icons/`; the duplicate root `icons/` was moved to the local-only `archive/` folder on 2026-10-24 (canonical is `src/common/icons/`).
+* `lib/bangs.js` is the single source for bang logic. It is listed explicitly in `background.scripts` (Firefox) and loaded via `importScripts` (Chrome service worker), and injected before `content/content.js` so the picker reuses the same ranking code.
 * `package.json` was missing — created.
 
 ## Future workflow

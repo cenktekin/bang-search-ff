@@ -1,6 +1,6 @@
 {
   "name": "bang-search",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "DuckDuckGo bang (!) shortcuts for Firefox and Chrome",
   "scripts": {
@@ -8,12 +8,12 @@
     "build:firefox": "node scripts/build.js firefox",
     "build:chrome": "node scripts/build.js chrome",
     "lint:firefox": "web-ext lint --source-dir dist/firefox",
-    "lint:chrome": "web-ext lint --source-dir dist/chrome",
     "lint": "npm run lint:firefox",
+    "test": "node --test tests",
     "start:firefox": "npm run build:firefox && web-ext run --source-dir dist/firefox",
     "start:chrome": "npm run build:chrome && web-ext run --source-dir dist/chrome --target=chromium",
     "zip:firefox": "web-ext build --source-dir dist/firefox --artifacts-dir web-ext-artifacts",
-    "zip:chrome": "node -e \"const{execSync}=require('child_process');execSync('powershell Compress-Archive -Force -Path dist/chrome/* -DestinationPath web-ext-artifacts/bang_search-chrome-0.1.0.zip',{stdio:'inherit'})\""
+    "zip:chrome": "node scripts/zip-chrome.js"
   },
   "devDependencies": {
     "web-ext": "^8.4.0"

@@ -31,6 +31,22 @@
       </div>
     </section>
 
+    <section class="custom">
+      <h2>Özel Bangler</h2>
+      <p class="hint">Kendi kısayolunu ekle. URL şablonunda arama metni için <code>{{{s}}}</code> kullan.</p>
+      <div id="customList" class="pills">
+        <span class="empty-hint">Henüz özel bang yok</span>
+      </div>
+      <form id="customForm" class="custom-form">
+        <input id="cbTrigger" name="trigger" type="text" placeholder="!kısayol (örn: forum)" required>
+        <input id="cbName" name="name" type="text" placeholder="Site adı (örn: Forum)" required>
+        <input id="cbDomain" name="domain" type="text" placeholder="Alan adı (örn: forum.example.com)">
+        <input id="cbUrl" name="url" type="text" placeholder="https://forum.example.com/ara?q={{{s}}}" required>
+        <button type="submit">Ekle</button>
+        <p id="customStatus" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
     <section class="actions">
       <button id="refreshBtn" type="button">Bangs'i Güncelle</button>
       <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -43,6 +59,7 @@
     </footer>
   </main>
 
+  <script src="../lib/bangs.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

@@ -12,6 +12,14 @@ dist/
 
 # Temp
 .tmp/
+
+# Local archive (moved duplicates, not part of the product)
+archive/
+
+# Secrets
+.env
+.env.*
+
 # opencode internal
 .omo/
 .amo-upload-uuid

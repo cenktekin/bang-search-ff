@@ -106,6 +106,7 @@
       letter-spacing: 0.04em;
     }
     .header-query {
+      font-family: inherit;
       font-weight: 600;
       font-size: 12px;
       color: var(--text);
@@ -116,8 +117,13 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 320px;
+      min-width: 0;
+      flex: 1;
+      outline: none;
+      transition: border-color 0.12s ease;
     }
+    .header-query:focus { border-color: var(--accent); }
+    .header-query::placeholder { color: var(--faint); font-weight: 500; }
     .input {
       width: 100%;
       padding: 12px 14px;
@@ -241,66 +247,21 @@
   let globalEscHandler = null;
 
   /* ------------------------------------------------------------------ */
-  /* Bang ranking (mirrors src/lib/bangs.js — content scripts cannot     */
-  /* importScripts, so the logic is duplicated here).                    */
+  /* Bang ranking — single source: lib/bangs.js (loaded before this file) */
   /* ------------------------------------------------------------------ */
 
-  function isBang(obj) {
-    return (
-      !!obj &&
-      typeof obj === "object" &&
-      typeof obj.t === "string" &&
-      obj.t.length > 0
-    );
-  }
+  const BangLib = (typeof self !== "undefined" && self.BangLib) || {};
+  let rankWarned = false;
 
-  /**
-   * Rank bangs against a user input string (case-insensitive).
-   * Tier 0: exact trigger match · Tier 1: prefix on t/s · Tier 2: substring
-   * on "t s d c sc". Within a tier: lower r (popularity) first, then shorter
-   * trigger, then alphabetical.
-   */
   function rankBangs(list, input, limit) {
-    const q = String(input == null ? "" : input).trim().toLowerCase();
-    const max = Number.isFinite(limit) && limit > 0 ? limit : 8;
-    if (!q || !Array.isArray(list) || list.length === 0) return [];
-
-    const scored = [];
-    for (const bang of list) {
-      if (!isBang(bang)) continue;
-      const t = bang.t.toLowerCase();
-      const s = String(bang.s || "").toLowerCase();
-      const d = String(bang.d || "").toLowerCase();
-      const c = String(bang.c || "").toLowerCase();
-      const sc = String(bang.sc || "").toLowerCase();
-
-      let tier = -1;
-      if (t === q) {
-        tier = 0;
-      } else if (t.startsWith(q) || s.startsWith(q)) {
-        tier = 1;
-      } else if (`${t} ${s} ${d} ${c} ${sc}`.includes(q)) {
-        tier = 2;
-      }
-      if (tier < 0) continue;
-
-      scored.push({
-        bang,
-        tier,
-        r: typeof bang.r === "number" ? bang.r : Number.MAX_SAFE_INTEGER,
-      });
+    if (typeof BangLib.rankBangs === "function") {
+      return BangLib.rankBangs(list, input, limit);
     }
-
-    scored.sort((a, b) => {
-      if (a.tier !== b.tier) return a.tier - b.tier;
-      if (a.r !== b.r) return a.r - b.r;
-      const at = a.bang.t;
-      const bt = b.bang.t;
-      if (at.length !== bt.length) return at.length - bt.length;
-      return at < bt ? -1 : at > bt ? 1 : 0;
-    });
-
-    return scored.slice(0, max).map((x) => x.bang);
+    if (!rankWarned) {
+      rankWarned = true;
+      console.error("[Bang Search] lib/bangs.js missing; ranking disabled.");
+    }
+    return [];
   }
 
   /* ------------------------------------------------------------------ */
@@ -335,8 +296,8 @@
     try {
       const stored = await api.storage.local.get("recentBangs");
       if (Array.isArray(stored.recentBangs)) recent = stored.recentBangs;
-    } catch (_) {
-      /* storage unavailable — fall through to popularity sort */
+    } catch (err) {
+      console.warn("[Bang Search] Could not read recent bangs:", err);
     }
     const byT = new Map();
     for (const b of bangs) byT.set(b.t, b);
@@ -385,10 +346,14 @@
     header.className = "header";
     const headerLabel = document.createElement("span");
     headerLabel.className = "header-label";
-    headerLabel.textContent = "Seçili metin:";
-    const headerQuery = document.createElement("span");
-    headerQuery.className = "header-query";
-    header.append(headerLabel, headerQuery);
+    headerLabel.textContent = "Ara:";
+    const queryInput = document.createElement("input");
+    queryInput.className = "header-query";
+    queryInput.type = "text";
+    queryInput.autocomplete = "off";
+    queryInput.spellcheck = false;
+    queryInput.setAttribute("aria-label", "Arama metni");
+    header.append(headerLabel, queryInput);
 
     const input = document.createElement("input");
     input.className = "input";
@@ -410,7 +375,7 @@
 
     (document.body || document.documentElement).appendChild(host);
 
-    els = { overlay, container, header, headerQuery, input, list, footer };
+    els = { overlay, container, header, queryInput, input, list, footer };
     bindEvents();
   }
 
@@ -495,14 +460,15 @@
         const resp = await api.runtime.sendMessage({ type: "GET_BANGS" });
         bangs = resp && Array.isArray(resp.bangs) ? resp.bangs : [];
       } catch (err) {
+        console.warn("[Bang Search] GET_BANGS failed:", err);
         bangs = [];
       }
     }
 
     ensureUI();
 
-    els.headerQuery.textContent = selectedText ? `"${selectedText}"` : "";
-    els.headerQuery.title = selectedText || "";
+    els.queryInput.value = selectedText;
+    els.queryInput.placeholder = "Arama metni";
     els.input.value = "";
     els.input.placeholder = "Bang ara: wiki, yt, hepsi, trendyol...";
 
@@ -548,11 +514,19 @@
 
   function onSelect(bang) {
     if (!bang) return;
+    const query = els.queryInput
+      ? els.queryInput.value.trim()
+      : selectedText.trim();
+    if (!query) {
+      els.footer.textContent = "Önce arama metnini yaz, sonra Enter";
+      els.queryInput.focus();
+      return;
+    }
     closePicker();
     api.runtime
-      .sendMessage({ type: "SEARCH", bangT: bang.t, query: selectedText })
-      .catch(() => {
-        /* background unreachable — nothing else to do */
+      .sendMessage({ type: "SEARCH", bangT: bang.t, query })
+      .catch((err) => {
+        console.error("[Bang Search] SEARCH message failed:", err);
       });
   }
 
@@ -561,6 +535,18 @@
   /* ------------------------------------------------------------------ */
 
   function bindEvents() {
+    els.queryInput.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const bang = filtered[selectedIndex];
+        if (bang) onSelect(bang);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closePicker();
+      }
+    });
+
     els.input.addEventListener("input", () => {
       const q = els.input.value;
       filtered = q.trim() ? rankBangs(bangs, q, 8) : initialList;

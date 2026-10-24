@@ -1,16 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Bang Search",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DuckDuckGo-style bang (!) shortcuts for Chrome. Select any text, right-click and search it instantly on 13k+ sites (Wikipedia, YouTube, GitHub...). Offline fallback included.",
   "author": "Cenk",
   "homepage_url": "https://github.com/cenktekin/bang-search-ff",
   "permissions": [
     "contextMenus",
     "storage",
-    "alarms",
-    "activeTab",
-    "scripting"
+    "alarms"
   ],
   "host_permissions": [
     "https://duckduckgo.com/*",
@@ -19,10 +17,16 @@
   "background": {
     "service_worker": "background/background.js"
   },
+  "commands": {
+    "open-bang-picker": {
+      "suggested_key": { "default": "Alt+Shift+K" },
+      "description": "Bang seçiciyi aç"
+    }
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
+      "js": ["lib/bangs.js", "content/content.js"],
       "css": ["content/picker.css"],
       "run_at": "document_idle"
     }

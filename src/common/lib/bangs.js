@@ -142,6 +142,40 @@
     return scored.slice(0, max).map((x) => x.bang);
   }
 
+  /**
+   * Validate and normalize a user-defined bang.
+   * Returns null when the trigger or URL template is unusable.
+   * A leading "!" in the trigger is tolerated ("!sh" -> "sh").
+   */
+  function normalizeCustomBang(raw) {
+    const bang = normalizeBang(raw);
+    if (!bang) return null;
+    const t = bang.t.replace(/^!+/, "").trim();
+    if (!/^[A-Za-z0-9._-]+$/.test(t)) return null;
+    if (!/^https?:\/\//i.test(bang.u)) return null;
+    if (bang.u.indexOf("{{{s}}}") === -1 && bang.u.indexOf("{{s}}") === -1) {
+      return null;
+    }
+    return { ...bang, t };
+  }
+
+  /**
+   * Merge user-defined bangs ahead of the fetched registry.
+   * Custom entries win on trigger collisions and sort first within a tier
+   * (r = -1 never occurs in DuckDuckGo's registry).
+   */
+  function mergeBangs(registry, custom) {
+    const base = Array.isArray(registry) ? registry : [];
+    const customList = Array.isArray(custom)
+      ? custom.map(normalizeCustomBang).filter(Boolean)
+      : [];
+    const customTriggers = new Set(customList.map((b) => b.t.toLowerCase()));
+    const rest = base.filter(
+      (b) => isBang(b) && !customTriggers.has(b.t.toLowerCase())
+    );
+    return [...customList.map((b) => ({ ...b, r: -1 })), ...rest];
+  }
+
   // Minimal fallback so picker never opens empty even if network fails
   const FALLBACK_BANGS = [
     { t: "w", s: "Wikipedia", d: "wikipedia.org", u: "https://en.wikipedia.org/w/index.php?search={{{s}}}", c: "Reference", r: 1 },
@@ -174,6 +208,20 @@
     { t: "npm", s: "npm", d: "npmjs.com", u: "https://www.npmjs.com/search?q={{{s}}}", c: "Tech", r: 28 },
     { t: "pypi", s: "PyPI", d: "pypi.org", u: "https://pypi.org/search/?q={{{s}}}", c: "Tech", r: 29 },
     { t: "hz", s: "Hepsiburada", d: "hepsiburada.com", u: "https://www.hepsiburada.com/ara?q={{{s}}}", c: "Shopping", r: 30 },
+    // Turkish sites (offline fallback — the live registry carries the rest)
+    { t: "sahibinden", s: "Sahibinden", d: "sahibinden.com", u: "https://www.sahibinden.com/arama?query_text={{{s}}}", c: "Shopping", sc: "Türkiye", r: 40 },
+    { t: "sh", s: "Sahibinden", d: "sahibinden.com", u: "https://www.sahibinden.com/arama?query_text={{{s}}}", c: "Shopping", sc: "Türkiye", r: 41 },
+    { t: "arabam", s: "Arabam.com", d: "arabam.com", u: "https://www.arabam.com/ikinci-el?searchText={{{s}}}", c: "Shopping", sc: "Türkiye", r: 42 },
+    { t: "letgo", s: "Letgo", d: "letgo.com", u: "https://www.letgo.com/tr-tr/search?query={{{s}}}", c: "Shopping", sc: "Türkiye", r: 43 },
+    { t: "dolap", s: "Dolap", d: "dolap.com", u: "https://dolap.com/ara?q={{{s}}}", c: "Shopping", sc: "Türkiye", r: 44 },
+    { t: "hepsiemlak", s: "Hepsiemlak", d: "hepsiemlak.com", u: "https://www.hepsiemlak.com/arama?q={{{s}}}", c: "Shopping", sc: "Türkiye", r: 45 },
+    { t: "ciceksepeti", s: "Çiçeksepeti", d: "ciceksepeti.com", u: "https://www.ciceksepeti.com/arama?q={{{s}}}", c: "Shopping", sc: "Türkiye", r: 46 },
+    { t: "migros", s: "Migros", d: "migros.com.tr", u: "https://www.migros.com.tr/arama?q={{{s}}}", c: "Shopping", sc: "Türkiye", r: 47 },
+    { t: "yemeksepeti", s: "Yemeksepeti", d: "yemeksepeti.com", u: "https://www.yemeksepeti.com/arama?q={{{s}}}", c: "Food", sc: "Türkiye", r: 48 },
+    { t: "kariyer", s: "Kariyer.net", d: "kariyer.net", u: "https://www.kariyer.net/is-ilani?keyword={{{s}}}", c: "Jobs", sc: "Türkiye", r: 49 },
+    { t: "tdk", s: "TDK Sözlük", d: "sozluk.gov.tr", u: "https://sozluk.gov.tr/?ara={{{s}}}", c: "Reference", sc: "Türkiye", r: 50 },
+    { t: "investing", s: "Investing.com TR", d: "tr.investing.com", u: "https://tr.investing.com/search/?q={{{s}}}", c: "Finance", sc: "Türkiye", r: 51 },
+    { t: "tefas", s: "TEFAS", d: "tefas.gov.tr", u: "https://www.tefas.gov.tr/FonArama?search={{{s}}}", c: "Finance", sc: "Türkiye", r: 52 },
   ];
 
   return {
@@ -181,6 +229,8 @@
     FALLBACK_BANGS,
     isBang,
     normalizeBang,
+    normalizeCustomBang,
+    mergeBangs,
     buildSearchUrl,
     matchesBang,
     rankBangs,

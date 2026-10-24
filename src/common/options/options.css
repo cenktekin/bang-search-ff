@@ -103,6 +103,93 @@ body {
   border-radius: 999px;
 }
 
+.custom {
+  margin-bottom: 20px;
+}
+
+.custom h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.custom-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.custom-pill button {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.custom-pill button:hover {
+  color: #991b1b;
+}
+
+.custom-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.custom-form input {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.custom-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.custom-form button {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  justify-self: start;
+}
+
+.custom-form button:hover {
+  background: #374151;
+}
+
+.custom-form .status {
+  grid-column: 1 / -1;
+}
+
 .empty-hint {
   font-size: 13px;
   color: #9ca3af;
